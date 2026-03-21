@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ChatPanel } from './panel';
+import { notebookEditorForContext } from './notebook/context';
 import { serializeCellOutputs } from './notebook/output';
 import { setPendingAttachment } from './attachment';
 
@@ -10,9 +11,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       panel.reveal();
     }),
     vscode.commands.registerCommand('whiskers.attachCellOutput', async () => {
-      const ed = vscode.window.activeNotebookEditor;
+      const ed = notebookEditorForContext();
       if (!ed) {
-        vscode.window.showWarningMessage('Open a notebook and focus a cell to attach output.');
+        vscode.window.showWarningMessage(
+          'Whiskers could not find a notebook to read from. Click inside your .ipynb tab (or the code area of a cell), select the cell whose output you want, then run this command again. If several notebooks are open, click the one you need first.'
+        );
         return;
       }
       const idx = ed.selection.start;

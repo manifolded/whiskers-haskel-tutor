@@ -10,10 +10,26 @@ export type NotebookContextPayload = {
 };
 
 /**
+ * When the chat webview has focus, `activeNotebookEditor` is often undefined even though a
+ * notebook is still visible. If exactly one notebook editor is visible, use it for context.
+ */
+export function notebookEditorForContext(): vscode.NotebookEditor | undefined {
+  const active = vscode.window.activeNotebookEditor;
+  if (active) {
+    return active;
+  }
+  const visible = vscode.window.visibleNotebookEditors;
+  if (visible.length === 1) {
+    return visible[0];
+  }
+  return undefined;
+}
+
+/**
  * Full notebook cell map + focus/selection (docs/notebook-code-targeting.md §2–3).
  */
 export function buildNotebookContextPayload(): NotebookContextPayload {
-  const ed = vscode.window.activeNotebookEditor;
+  const ed = notebookEditorForContext();
   if (!ed) {
     return {
       notebookUri: '',
