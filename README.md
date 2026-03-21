@@ -18,7 +18,9 @@ This project does not assume a published Marketplace listing. Install Whiskers i
    ```bash
    npx vsce package
    ```
-4. In **VS Code** or **Cursor**: open **Extensions**, open the **⋯** menu on the Extensions view, choose **Install from VSIX…**, and select the generated `.vsix` file in the project directory.
+4. Install the packaged extension:
+   - **Command Palette** (macOS: **⇧⌘P**): run **Extensions: Install from VSIX…**, then choose the generated `whiskers-haskell-tutor-*.vsix` in the project directory (or wherever you saved it).
+   - Alternatively, open **Extensions** (**⇧⌘X** in VS Code on macOS; your keybindings may differ) and use the **⋯** menu on that view if your build shows **Install from VSIX…** there.
 
 After installation, configure [settings](#configuration-no-silent-defaults) and complete the [prerequisites](#prerequisites-developer-environment) for notebooks and AI backends.
 
