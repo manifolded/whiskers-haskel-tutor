@@ -77,7 +77,7 @@ Set in **Settings** (JSON):
 
 ## Notebook context
 
-The extension sends a **cell map** (see [docs/notebook-code-targeting.md](docs/notebook-code-targeting.md)) plus focus/selection for each request.
+The extension sends a **cell map** (see [docs/notebook-code-targeting.md](https://github.com/manifolded/whiskers-haskel-tutor/blob/main/docs/notebook-code-targeting.md)) plus focus/selection for each request.
 
 ## Development
 
