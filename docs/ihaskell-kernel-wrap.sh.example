@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Install: copy to ~/.local/bin/ihaskell-kernel-wrap.sh, chmod +x,
+# then set kernel.json argv[0] to this script's absolute path.
+#
+# Use ~/.local/bin/ihaskell (cabal's symlink) so cabal reinstalls do not
+# leave a stale hardcoded path into the cabal store.
+export PATH="${HOME}/.ghcup/bin:${PATH}"
+unset GHC_PACKAGE_PATH
+exec "${HOME}/.local/bin/ihaskell" "$@"

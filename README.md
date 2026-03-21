@@ -54,13 +54,15 @@ If `cabal install ihaskell` reports "ghc could not be found", run `ghcup set ghc
 
 **Apple Silicon (arm64):** If the linker reports `found architecture 'x86_64', required architecture 'arm64'` for ZeroMQ, install the native arm64 ZeroMQ: `brew install zeromq` (use arm64 Homebrew at `/opt/homebrew`, not Intel Homebrew at `/usr/local`).
 
+**Kernel fails with `ghc-pkg` not in PATH:** Jupyter often starts without your shell `PATH`, so `~/.ghcup/bin` may be missing. See [docs/ihaskell-kernel-path.md](docs/ihaskell-kernel-path.md).
+
 ## Workspace
 
 Open a **folder** as the workspace. The first root folder is the Whiskers project root. Chat history is stored under `<workspace>/.whiskers/history.sqlite` (SQLite via **sql.js**).
 
 ## Configuration (no silent defaults)
 
-Set in **Settings** (JSON):
+Set in **Settings** (JSON). A starting point is [docs/whiskers-settings.example.json](docs/whiskers-settings.example.json): copy its keys into your **User** or **Workspace** `settings.json`, set `whiskers.lmStudio.model` to your LM Studio model id, and leave `whiskers.lmStudio.apiKey` empty unless your server requires a key. The Replicate token is not stored in settings—use **Whiskers: Set Replicate API Token**.
 
 | Setting | Purpose |
 |--------|---------|
@@ -74,7 +76,7 @@ Set in **Settings** (JSON):
 ## Commands
 
 - **Whiskers: Open Tutor Chat** — open the chat webview.
-- **Whiskers: Attach Active Cell Output to Chat** — attach the active notebook cell’s text output to the next message (debugging workflow).
+- **Whiskers: Attach Active Cell Output to Chat** — attach the active notebook cell’s text output to the next message (debugging workflow). Jupyter-style stdout/stderr (including IHaskell/GHC errors) and structured notebook errors are included.
 - **Whiskers: Set Replicate API Token** — store the Replicate API token.
 
 ## Notebook context
