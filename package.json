@@ -1,0 +1,82 @@
+{
+  "name": "whiskers-haskell-tutor",
+  "displayName": "Whiskers Haskell Tutor",
+  "description": "Haskell tutor with Jupyter/IHaskell integration and AI chat",
+  "version": "0.1.0",
+  "publisher": "whiskers",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Education",
+    "Computer Science"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "whiskers.openChat",
+        "title": "Whiskers: Open Tutor Chat"
+      },
+      {
+        "command": "whiskers.attachCellOutput",
+        "title": "Whiskers: Attach Active Cell Output to Chat"
+      },
+      {
+        "command": "whiskers.setReplicateApiToken",
+        "title": "Whiskers: Set Replicate API Token"
+      }
+    ],
+    "configuration": {
+      "title": "Whiskers",
+      "properties": {
+        "whiskers.lmStudio.baseUrl": {
+          "type": "string",
+          "description": "OpenAI-compatible base URL for the coach/tutor model (e.g. LM Studio). Required. No default."
+        },
+        "whiskers.lmStudio.apiKey": {
+          "type": "string",
+          "description": "Optional API key for the OpenAI-compatible coach/tutor endpoint (if required by your server)."
+        },
+        "whiskers.lmStudio.model": {
+          "type": "string",
+          "description": "Model id for coach, challenge, and quiz modes. Required."
+        },
+        "whiskers.replicate.model": {
+          "type": "string",
+          "default": "anthropic/claude-opus-4.6",
+          "description": "Replicate model id (owner/name) for generation and debugging, e.g. anthropic/claude-opus-4.6."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "npm run compile:ext && npm run compile:webview",
+    "compile:ext": "node esbuild.config.mjs --production",
+    "compile:webview": "vite build --config webview/vite.config.ts",
+    "watch": "node esbuild.config.mjs --watch",
+    "watch:webview": "vite build --config webview/vite.config.ts --watch",
+    "lint": "eslint src --ext ts",
+    "test": "node -e \"console.log('No automated tests yet; see README manual QA.')\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/sql.js": "^1.4.10",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.20.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^1.0.0",
+    "ai": "^4.0.0",
+    "replicate": "^1.4.0",
+    "sql.js": "^1.10.0",
+    "zod": "^3.22.4"
+  }
+}

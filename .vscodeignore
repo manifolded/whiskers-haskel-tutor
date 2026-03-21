@@ -1,0 +1,9 @@
+.vscode/**
+.vscode-test/**
+src/**
+webview/**
+esbuild.config.mjs
+tsconfig.json
+**/*.map
+node_modules/**/test/**
+node_modules/**/.cache/**

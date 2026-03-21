@@ -1,0 +1,218 @@
+import * as vscode from 'vscode';
+import { randomUUID } from 'crypto';
+import type { CoreMessage } from 'ai';
+import type { Database as SqlDatabase } from 'sql.js';
+import { loadConfigForMode } from './config';
+import type { CoachTutorConfigOk, CodeGenConfigOk } from './config';
+import type { WhiskersMode } from './modes';
+import { isWhiskersMode } from './modes';
+import { getWhiskersDir } from './projectRoot';
+import { openHistoryDb, appendMessage, listMessages, closeHistoryDb } from './storage/sqlite';
+import { buildNotebookContextPayload, formatNotebookContextForPrompt } from './notebook/context';
+import { streamCoachTutor, streamReplicate } from './chat/stream';
+import { takePendingAttachment } from './attachment';
+
+export class ChatPanel {
+  public static current: ChatPanel | undefined;
+
+  private readonly panel: vscode.WebviewPanel;
+  private readonly ctx: vscode.ExtensionContext;
+  private db: SqlDatabase | undefined;
+  private dbInit: Promise<SqlDatabase> | undefined;
+
+  private constructor(panel: vscode.WebviewPanel, ctx: vscode.ExtensionContext) {
+    this.panel = panel;
+    this.ctx = ctx;
+    this.panel.onDidDispose(() => {
+      if (ChatPanel.current === this) {
+        ChatPanel.current = undefined;
+      }
+    });
+    this.panel.webview.onDidReceiveMessage((msg) => void this.onMessage(msg));
+  }
+
+  static async createOrShow(ctx: vscode.ExtensionContext): Promise<ChatPanel> {
+    if (ChatPanel.current) {
+      ChatPanel.current.panel.reveal(vscode.ViewColumn.One);
+      return ChatPanel.current;
+    }
+    const panel = vscode.window.createWebviewPanel(
+      'whiskersChat',
+      'Whiskers Tutor',
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [vscode.Uri.joinPath(ctx.extensionUri, 'dist', 'webview')],
+      }
+    );
+    const c = new ChatPanel(panel, ctx);
+    ChatPanel.current = c;
+    await c.setWebviewHtml();
+    return c;
+  }
+
+  private async setWebviewHtml(): Promise<void> {
+    const js = this.panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.ctx.extensionUri, 'dist', 'webview', 'assets', 'index.js')
+    );
+    const css = this.panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.ctx.extensionUri, 'dist', 'webview', 'assets', 'index.css')
+    );
+    const csp = [
+      `default-src 'none';`,
+      `style-src ${this.panel.webview.cspSource} 'unsafe-inline';`,
+      `script-src ${this.panel.webview.cspSource};`,
+    ].join(' ');
+    this.panel.webview.html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="${csp}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="${css}" rel="stylesheet" />
+  <title>Whiskers Tutor</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="${js}"></script>
+</body>
+</html>`;
+  }
+
+  private async getDb(): Promise<SqlDatabase> {
+    if (this.db) {
+      return this.db;
+    }
+    const dir = getWhiskersDir();
+    if (!dir) {
+      throw new Error('Open a workspace folder to use Whiskers.');
+    }
+    if (!this.dbInit) {
+      this.dbInit = openHistoryDb(dir);
+    }
+    this.db = await this.dbInit;
+    return this.db;
+  }
+
+  private async postHistory() {
+    const db = await this.getDb();
+    const rows = listMessages(db);
+    const messages = rows.map((r) => ({
+      id: r.id,
+      role: r.role as 'user' | 'assistant',
+      content: r.content,
+      mode: r.mode ?? undefined,
+      createdAt: r.created_at,
+    }));
+    this.panel.webview.postMessage({ type: 'history', messages });
+  }
+
+  private async onMessage(msg: { type: string; text?: string; mode?: string }) {
+    if (msg.type === 'ready') {
+      await this.postHistory();
+      return;
+    }
+    if (msg.type !== 'send' || typeof msg.text !== 'string') {
+      return;
+    }
+    const modeStr = msg.mode ?? 'coach';
+    if (!isWhiskersMode(modeStr)) {
+      this.panel.webview.postMessage({ type: 'error', message: `Invalid mode: ${modeStr}` });
+      return;
+    }
+    const mode = modeStr as WhiskersMode;
+    await this.handleSend(mode, msg.text);
+  }
+
+  private async handleSend(mode: WhiskersMode, userText: string) {
+    const cfg = await loadConfigForMode(mode, this.ctx.secrets);
+    if (!cfg.ok) {
+      vscode.window.showErrorMessage(cfg.message);
+      this.panel.webview.postMessage({ type: 'error', message: cfg.message });
+      return;
+    }
+
+    const nb = buildNotebookContextPayload();
+    const nbBlock = formatNotebookContextForPrompt(nb);
+    const pending = takePendingAttachment();
+    let fullUser = userText;
+    if (pending) {
+      fullUser = `${userText}\n\n--- Attached cell output ---\n${pending}`;
+    }
+    const userContent = `${fullUser}\n\n--- Notebook context ---\n${nbBlock}`;
+
+    const db = await this.getDb();
+    const userId = randomUUID();
+    const assistantId = randomUUID();
+    const now = Date.now();
+    appendMessage(db, {
+      id: userId,
+      role: 'user',
+      content: userText,
+      mode,
+      created_at: now,
+      metadata_json: pending ? JSON.stringify({ attachedOutput: true }) : null,
+    });
+
+    const rows = listMessages(db);
+    const core: CoreMessage[] = [];
+    for (const r of rows) {
+      if (r.role !== 'user' && r.role !== 'assistant') {
+        continue;
+      }
+      if (r.id === userId) {
+        core.push({ role: 'user', content: userContent });
+      } else {
+        core.push({ role: r.role, content: r.content });
+      }
+    }
+
+    this.panel.webview.postMessage({ type: 'streamStart', assistantId });
+
+    try {
+      let assistantText = '';
+      const handlers = {
+        onDelta: (d: string) => {
+          assistantText += d;
+          this.panel.webview.postMessage({ type: 'streamChunk', assistantId, delta: d });
+        },
+      };
+
+      if (mode === 'coach' || mode === 'challenge' || mode === 'quiz') {
+        const c = cfg as CoachTutorConfigOk;
+        assistantText = await streamCoachTutor({ mode, lm: c.lmStudio, messages: core, handlers });
+      } else {
+        const a = cfg as CodeGenConfigOk;
+        assistantText = await streamReplicate({ mode, replicate: a.replicate, messages: core, handlers });
+      }
+
+      this.panel.webview.postMessage({ type: 'streamEnd', assistantId });
+      appendMessage(db, {
+        id: assistantId,
+        role: 'assistant',
+        content: assistantText,
+        mode,
+        created_at: Date.now(),
+      });
+      await this.postHistory();
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e);
+      this.panel.webview.postMessage({ type: 'streamEnd', assistantId });
+      vscode.window.showErrorMessage(err);
+      this.panel.webview.postMessage({ type: 'error', message: err });
+    }
+  }
+
+  reveal(): void {
+    this.panel.reveal();
+  }
+
+  postAttachedOutput(text: string): void {
+    this.panel.webview.postMessage({ type: 'attachedOutput', text });
+  }
+
+  static onDeactivate(): void {
+    closeHistoryDb();
+  }
+}
