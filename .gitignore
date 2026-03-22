@@ -5,3 +5,4 @@ dist/
 .cursor/
 .env*
 !.env.example
+ToDo.md
