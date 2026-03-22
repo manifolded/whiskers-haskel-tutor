@@ -77,7 +77,10 @@ body {
 .msg-user .body {
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--vscode-editor-foreground);
+  color: var(
+    --vscode-terminal-ansiBrightMagenta,
+    var(--vscode-terminal-ansiMagenta)
+  );
 }
 
 .msg-assistant .body {
