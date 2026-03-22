@@ -11,9 +11,18 @@ const vscode = acquireVsCodeApi();
 
 type ChatMode = 'coach' | 'challenge' | 'quiz' | 'generation' | 'debugging';
 
+const CHAT_MODES = new Set<ChatMode>(['coach', 'challenge', 'quiz', 'generation', 'debugging']);
+
+function assistantModeClass(mode: string | undefined): string {
+  if (mode && CHAT_MODES.has(mode as ChatMode)) {
+    return ` mode-${mode}`;
+  }
+  return '';
+}
+
 type ExtMsg =
   | { type: 'history'; messages: StoredMessage[] }
-  | { type: 'streamStart'; assistantId: string }
+  | { type: 'streamStart'; assistantId: string; mode: ChatMode }
   | { type: 'streamChunk'; assistantId: string; delta: string }
   | { type: 'streamEnd'; assistantId: string }
   | { type: 'error'; message: string }
@@ -91,12 +100,16 @@ root.appendChild(messagesEl);
 root.appendChild(input);
 
 const streamingContent = new Map<string, string>();
+const streamingModeByAssistantId = new Map<string, ChatMode>();
 
 function renderMessages(history: StoredMessage[]) {
   messagesEl.innerHTML = '';
   for (const m of history) {
     const div = document.createElement('div');
-    div.className = `msg msg-${m.role}`;
+    div.className =
+      m.role === 'assistant'
+        ? `msg msg-assistant${assistantModeClass(m.mode)}`
+        : `msg msg-${m.role}`;
     const meta = document.createElement('div');
     meta.className = 'meta';
     meta.textContent = `${m.role}${m.mode ? ` · ${m.mode}` : ''}`;
@@ -120,9 +133,10 @@ function appendStreamingDelta(id: string, delta: string) {
   streamingContent.set(id, next);
   let el = document.getElementById(`stream-${id}`);
   if (!el) {
+    const streamMode = streamingModeByAssistantId.get(id) ?? 'coach';
     el = document.createElement('div');
     el.id = `stream-${id}`;
-    el.className = 'msg msg-assistant streaming';
+    el.className = `msg msg-assistant streaming mode-${streamMode}`;
     const meta = document.createElement('div');
     meta.className = 'meta';
     meta.textContent = 'assistant · streaming';
@@ -139,6 +153,7 @@ function appendStreamingDelta(id: string, delta: string) {
 
 function finalizeStream(id: string) {
   streamingContent.delete(id);
+  streamingModeByAssistantId.delete(id);
   const el = document.getElementById(`stream-${id}`);
   if (el) {
     el.remove();
@@ -172,6 +187,7 @@ window.addEventListener('message', (event) => {
     renderMessages(data.messages);
   } else if (data.type === 'streamStart') {
     streamingContent.set(data.assistantId, '');
+    streamingModeByAssistantId.set(data.assistantId, data.mode);
   } else if (data.type === 'streamChunk') {
     appendStreamingDelta(data.assistantId, data.delta);
   } else if (data.type === 'streamEnd') {

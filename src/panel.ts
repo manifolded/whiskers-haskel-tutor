@@ -180,7 +180,7 @@ export class ChatPanel {
       }
     }
 
-    this.panel.webview.postMessage({ type: 'streamStart', assistantId });
+    this.panel.webview.postMessage({ type: 'streamStart', assistantId, mode });
 
     try {
       let assistantText = '';

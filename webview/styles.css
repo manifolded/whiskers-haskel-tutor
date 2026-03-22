@@ -85,6 +85,28 @@ body {
 
 .msg-assistant .body {
   color: var(--vscode-editor-foreground);
+  border-left: 3px solid var(--vscode-charts-blue, var(--vscode-editorInfo-foreground));
+  padding-left: 10px;
+}
+
+.msg-assistant.mode-coach .body {
+  border-left-color: var(--vscode-charts-blue, var(--vscode-editorInfo-foreground));
+}
+
+.msg-assistant.mode-challenge .body {
+  border-left-color: var(--vscode-charts-orange, var(--vscode-editorWarning-foreground));
+}
+
+.msg-assistant.mode-quiz .body {
+  border-left-color: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground));
+}
+
+.msg-assistant.mode-generation .body {
+  border-left-color: var(--vscode-charts-green, var(--vscode-gitDecoration-addedResourceForeground));
+}
+
+.msg-assistant.mode-debugging .body {
+  border-left-color: var(--vscode-charts-purple, var(--vscode-terminal-ansiMagenta));
 }
 
 .msg-assistant .body.markdown-body {
