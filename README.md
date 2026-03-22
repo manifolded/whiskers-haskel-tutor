@@ -2,6 +2,8 @@
 
 Welcome. **Whiskers** brings a friendly AI tutor into **VS Code** or **Cursor** next to your **IHaskell** Jupyter notebooks—so you can ask questions, get challenges, and debug cell output without leaving the editor.
 
+![Whiskers Haskell Tutor in action: IHaskell notebook alongside the tutor chat](WhiskersInAction.png)
+
 ## What you get
 
 - **Chat modes** tailored for learning: **Coach**, **Challenge**, and **Quiz** (powered by your local **LM Studio** or any OpenAI-compatible API), plus **Generation** and **Debugging** (via **Replicate**, defaulting to Claude Opus 4.6).
