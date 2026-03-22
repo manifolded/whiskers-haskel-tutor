@@ -17,7 +17,8 @@ type ExtMsg =
   | { type: 'streamChunk'; assistantId: string; delta: string }
   | { type: 'streamEnd'; assistantId: string }
   | { type: 'error'; message: string }
-  | { type: 'attachedOutput'; text: string };
+  | { type: 'attachedOutput'; text: string }
+  | { type: 'toast'; message: string; variant?: 'info' | 'warning' };
 
 type StoredMessage = {
   id: string;
@@ -28,6 +29,29 @@ type StoredMessage = {
 };
 
 const root = document.getElementById('root')!;
+
+const toastHost = document.createElement('div');
+toastHost.className = 'whiskers-toast-host';
+toastHost.setAttribute('aria-live', 'polite');
+root.prepend(toastHost);
+
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+function showToast(message: string, variant: 'info' | 'warning') {
+  toastHost.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = `whiskers-toast whiskers-toast-${variant}`;
+  div.textContent = message;
+  toastHost.appendChild(div);
+  if (toastTimer !== undefined) {
+    clearTimeout(toastTimer);
+  }
+  const ms = variant === 'warning' ? 12000 : 6000;
+  toastTimer = window.setTimeout(() => {
+    toastHost.innerHTML = '';
+    toastTimer = undefined;
+  }, ms);
+}
 
 const modeSelect = document.createElement('select');
 modeSelect.id = 'mode';
@@ -159,6 +183,8 @@ window.addEventListener('message', (event) => {
     messagesEl.appendChild(div);
   } else if (data.type === 'attachedOutput') {
     input.value = (input.value ? input.value + '\n\n' : '') + data.text;
+  } else if (data.type === 'toast') {
+    showToast(data.message, data.variant ?? 'info');
   }
 });
 

@@ -19,11 +19,16 @@ export class ChatPanel {
   private readonly ctx: vscode.ExtensionContext;
   private db: SqlDatabase | undefined;
   private dbInit: Promise<SqlDatabase> | undefined;
+  /** Webview has sent `ready`; prior to that, postMessage can be dropped by VS Code. */
+  private webviewReady = false;
+  private pendingToasts: { message: string; variant: 'info' | 'warning' }[] = [];
 
   private constructor(panel: vscode.WebviewPanel, ctx: vscode.ExtensionContext) {
     this.panel = panel;
     this.ctx = ctx;
     this.panel.onDidDispose(() => {
+      this.webviewReady = false;
+      this.pendingToasts = [];
       if (ChatPanel.current === this) {
         ChatPanel.current = undefined;
       }
@@ -112,6 +117,11 @@ export class ChatPanel {
 
   private async onMessage(msg: { type: string; text?: string; mode?: string }) {
     if (msg.type === 'ready') {
+      this.webviewReady = true;
+      for (const t of this.pendingToasts) {
+        this.panel.webview.postMessage({ type: 'toast', message: t.message, variant: t.variant });
+      }
+      this.pendingToasts = [];
       await this.postHistory();
       return;
     }
@@ -212,6 +222,15 @@ export class ChatPanel {
 
   postAttachedOutput(text: string): void {
     this.panel.webview.postMessage({ type: 'attachedOutput', text });
+  }
+
+  /** In-webview banner at top of chat (avoids covering the message input). */
+  postToast(message: string, variant: 'info' | 'warning' = 'info'): void {
+    if (this.webviewReady) {
+      this.panel.webview.postMessage({ type: 'toast', message, variant });
+    } else {
+      this.pendingToasts.push({ message, variant });
+    }
   }
 
   static onDeactivate(): void {

@@ -79,6 +79,8 @@ Set in **Settings** (JSON). A starting point is [docs/whiskers-settings.example.
 - **Whiskers: Attach Active Cell Output to Chat** — attach the active notebook cell’s text output to the next message (debugging workflow). Jupyter-style stdout/stderr (including IHaskell/GHC errors) and structured notebook errors are included.
 - **Whiskers: Set Replicate API Token** — store the Replicate API token.
 
+**Toasts:** Info from attach / token commands appears as a **banner at the top of the chat webview** (above the transcript), so it does not cover the message input. The workspace [`.vscode/settings.json`](.vscode/settings.json) sets `workbench.notifications.position` to `top-right` for any remaining native notifications (VS Code/Cursor do not offer a top-left option). Adjust in **Settings** if you prefer `bottom-left` or `bottom-right`.
+
 ## Notebook context
 
 The extension sends a **cell map** (see [docs/notebook-code-targeting.md](https://github.com/manifolded/whiskers-haskel-tutor/blob/main/docs/notebook-code-targeting.md)) plus focus/selection for each request.
@@ -91,6 +93,8 @@ npm run compile
 ```
 
 Press **F5** in VS Code with the provided launch configuration to run the **Extension Development Host**.
+
+If you install from a **VSIX**, Cursor loads the copy under `~/.cursor/extensions/<publisher>.<name>-<version>`. After `npm run compile` and rebuilding the VSIX, **reinstall** or bump the version so you are not testing an old bundle.
 
 ## Packaging
 
