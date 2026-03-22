@@ -1,4 +1,5 @@
 import './styles.css';
+import { renderMarkdownToSafeHtml } from './renderMarkdown';
 
 declare function acquireVsCodeApi(): {
   postMessage: (msg: unknown) => void;
@@ -76,8 +77,12 @@ function renderMessages(history: StoredMessage[]) {
     meta.className = 'meta';
     meta.textContent = `${m.role}${m.mode ? ` · ${m.mode}` : ''}`;
     const body = document.createElement('div');
-    body.className = 'body';
-    body.textContent = m.content;
+    body.className = m.role === 'assistant' ? 'body markdown-body' : 'body';
+    if (m.role === 'assistant') {
+      body.innerHTML = renderMarkdownToSafeHtml(m.content);
+    } else {
+      body.textContent = m.content;
+    }
     div.appendChild(meta);
     div.appendChild(body);
     messagesEl.appendChild(div);
@@ -98,13 +103,13 @@ function appendStreamingDelta(id: string, delta: string) {
     meta.className = 'meta';
     meta.textContent = 'assistant · streaming';
     const body = document.createElement('div');
-    body.className = 'body';
+    body.className = 'body markdown-body';
     el.appendChild(meta);
     el.appendChild(body);
     messagesEl.appendChild(el);
   }
   const body = el.querySelector('.body') as HTMLDivElement;
-  body.textContent = next;
+  body.innerHTML = renderMarkdownToSafeHtml(next);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 

@@ -63,6 +63,8 @@ export class ChatPanel {
       `default-src 'none';`,
       `style-src ${this.panel.webview.cspSource} 'unsafe-inline';`,
       `script-src ${this.panel.webview.cspSource};`,
+      `img-src https: http: data: blob: ${this.panel.webview.cspSource};`,
+      `font-src https: data: ${this.panel.webview.cspSource};`,
     ].join(' ');
     this.panel.webview.html = `<!DOCTYPE html>
 <html>

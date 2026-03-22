@@ -68,6 +68,7 @@
     "test": "node -e \"console.log('No automated tests yet; see README manual QA.')\""
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^20.10.0",
     "@types/sql.js": "^1.4.10",
     "@types/vscode": "^1.85.0",
@@ -79,6 +80,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^1.0.0",
     "ai": "^4.0.0",
+    "dompurify": "^3.2.4",
+    "marked": "^15.0.7",
     "replicate": "^1.4.0",
     "sql.js": "^1.10.0",
     "zod": "^3.22.4"
