@@ -1,13 +1,20 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
+import { historyTrace, getHistoryDebugConfig } from './debug/historyTrace';
 import type { CoreMessage } from 'ai';
 import type { Database as SqlDatabase } from 'sql.js';
 import { loadConfigForMode } from './config';
 import type { CoachTutorConfigOk, CodeGenConfigOk } from './config';
 import type { WhiskersMode } from './modes';
 import { isWhiskersMode } from './modes';
-import { getWhiskersDir } from './projectRoot';
-import { openHistoryDb, appendMessage, listMessages, closeHistoryDb } from './storage/sqlite';
+import { getHistoryDbPath, getProjectRootPath, getWhiskersDir } from './projectRoot';
+import {
+  openHistoryDb,
+  appendMessage,
+  listMessages,
+  closeHistoryDb,
+  countMessages,
+} from './storage/sqlite';
 import { buildNotebookContextPayload, formatNotebookContextForPrompt } from './notebook/context';
 import { streamCoachTutor, streamReplicate } from './chat/stream';
 import { takePendingAttachment } from './attachment';
@@ -22,11 +29,19 @@ export class ChatPanel {
   /** Webview has sent `ready`; prior to that, postMessage can be dropped by VS Code. */
   private webviewReady = false;
   private pendingToasts: { message: string; variant: 'info' | 'warning' }[] = [];
+  private readonly traceSessionId = randomUUID();
+  private dbTraceLogged = false;
 
   private constructor(panel: vscode.WebviewPanel, ctx: vscode.ExtensionContext) {
     this.panel = panel;
     this.ctx = ctx;
+    if (getHistoryDebugConfig().chatHistory) {
+      historyTrace({ kind: 'panelCreate', sessionId: this.traceSessionId });
+    }
     this.panel.onDidDispose(() => {
+      if (getHistoryDebugConfig().chatHistory) {
+        historyTrace({ kind: 'panelDispose', sessionId: this.traceSessionId });
+      }
       this.webviewReady = false;
       this.pendingToasts = [];
       if (ChatPanel.current === this) {
@@ -99,6 +114,16 @@ export class ChatPanel {
       this.dbInit = openHistoryDb(dir);
     }
     this.db = await this.dbInit;
+    if (!this.dbTraceLogged && getHistoryDebugConfig().chatHistory) {
+      this.dbTraceLogged = true;
+      historyTrace({
+        kind: 'panelGetDb',
+        sessionId: this.traceSessionId,
+        dbPath: getHistoryDbPath(),
+        workspaceRoot: getProjectRootPath(),
+        rowCount: countMessages(this.db),
+      });
+    }
     return this.db;
   }
 
@@ -166,6 +191,15 @@ export class ChatPanel {
       created_at: now,
       metadata_json: pending ? JSON.stringify({ attachedOutput: true }) : null,
     });
+    if (getHistoryDebugConfig().chatHistory) {
+      historyTrace({
+        kind: 'handleSend',
+        phase: 'userAppended',
+        sessionId: this.traceSessionId,
+        userId,
+        rowCount: countMessages(db),
+      });
+    }
 
     const rows = listMessages(db);
     const core: CoreMessage[] = [];
@@ -200,6 +234,15 @@ export class ChatPanel {
       }
 
       this.panel.webview.postMessage({ type: 'streamEnd', assistantId });
+      if (getHistoryDebugConfig().chatHistory) {
+        historyTrace({
+          kind: 'handleSend',
+          phase: 'streamFinishedOk',
+          sessionId: this.traceSessionId,
+          assistantId,
+          rowCountBeforeAssistantAppend: countMessages(db),
+        });
+      }
       appendMessage(db, {
         id: assistantId,
         role: 'assistant',
@@ -207,10 +250,37 @@ export class ChatPanel {
         mode,
         created_at: Date.now(),
       });
+      if (getHistoryDebugConfig().chatHistory) {
+        historyTrace({
+          kind: 'handleSend',
+          phase: 'assistantAppended',
+          sessionId: this.traceSessionId,
+          assistantId,
+          rowCount: countMessages(db),
+        });
+      }
       await this.postHistory();
+      if (getHistoryDebugConfig().chatHistory) {
+        historyTrace({
+          kind: 'handleSend',
+          phase: 'postHistoryAfterSend',
+          sessionId: this.traceSessionId,
+          rowCount: countMessages(db),
+        });
+      }
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e);
       this.panel.webview.postMessage({ type: 'streamEnd', assistantId });
+      if (getHistoryDebugConfig().chatHistory) {
+        historyTrace({
+          kind: 'handleSend',
+          phase: 'streamError',
+          sessionId: this.traceSessionId,
+          assistantId,
+          error: err,
+          rowCount: countMessages(db),
+        });
+      }
       vscode.window.showErrorMessage(err);
       this.panel.webview.postMessage({ type: 'error', message: err });
     }

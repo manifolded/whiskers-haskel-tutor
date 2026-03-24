@@ -36,6 +36,10 @@
       {
         "command": "whiskers.diagnoseIhaskellKernel",
         "title": "Whiskers: Diagnose IHaskell Kernel Environment"
+      },
+      {
+        "command": "whiskers.copyHistoryDebugInfo",
+        "title": "Whiskers: Copy Chat History Debug Info"
       }
     ],
     "configuration": {
@@ -57,6 +61,21 @@
           "type": "string",
           "default": "anthropic/claude-opus-4.6",
           "description": "Replicate model id (owner/name) for generation and debugging, e.g. anthropic/claude-opus-4.6."
+        },
+        "whiskers.debug.chatHistory": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log chat history DB open/append/persist/close events to Output → Whiskers History Debug and optionally to .whiskers/debug/history-trace.ndjson."
+        },
+        "whiskers.debug.logToWorkspace": {
+          "type": "boolean",
+          "default": false,
+          "description": "When whiskers.debug.chatHistory is true, also append one JSON line per event to <workspace>/.whiskers/debug/history-trace.ndjson."
+        },
+        "whiskers.debug.chatHistoryVerify": {
+          "type": "boolean",
+          "default": false,
+          "description": "After each persist, re-open history.sqlite from disk and compare row count to the in-memory DB (detects truncated writes). Logs mismatches to the output channel even if chatHistory tracing is off."
         }
       }
     }

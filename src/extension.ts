@@ -1,6 +1,10 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { closeReadOnlyDb, openHistoryReadOnly } from './cli/historyDb';
 import { ChatPanel } from './panel';
+import { getHistoryDbPath, getProjectRootPath } from './projectRoot';
+import { countMessages, listLastMessageMeta } from './storage/sqlite';
 import { notebookEditorForContext } from './notebook/context';
 import { serializeCellOutputs } from './notebook/output';
 import { setPendingAttachment } from './attachment';
@@ -38,6 +42,44 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       panel.postAttachedOutput(block);
       panel.reveal();
       panel.postToast('Cell output attached to the next chat message.');
+    }),
+    vscode.commands.registerCommand('whiskers.copyHistoryDebugInfo', async () => {
+      const root = getProjectRootPath();
+      const dbPath = getHistoryDbPath();
+      if (!root || !dbPath) {
+        void vscode.window.showWarningMessage('Open a workspace folder to copy history debug info.');
+        return;
+      }
+      if (!fs.existsSync(dbPath)) {
+        void vscode.window.showWarningMessage(`No history database at ${dbPath}.`);
+        return;
+      }
+      let db;
+      try {
+        db = await openHistoryReadOnly(dbPath);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        void vscode.window.showErrorMessage(msg);
+        return;
+      }
+      try {
+        const total = countMessages(db);
+        const last = listLastMessageMeta(db, 8);
+        const st = fs.statSync(dbPath);
+        const lines = [
+          `workspaceRoot: ${root}`,
+          `historyDbPath: ${dbPath}`,
+          `fileSizeBytes: ${st.size}`,
+          `mtimeMs: ${st.mtimeMs}`,
+          `rowCount: ${total}`,
+          'lastMessagesNewestFirst (id, created_at ISO):',
+          ...last.map((m) => `  ${m.id}  ${new Date(m.created_at).toISOString()}`),
+        ];
+        await vscode.env.clipboard.writeText(lines.join('\n'));
+        void vscode.window.showInformationMessage('Whiskers history debug info copied to clipboard.');
+      } finally {
+        closeReadOnlyDb(db);
+      }
     }),
     vscode.commands.registerCommand('whiskers.diagnoseIhaskellKernel', () => {
       const wf = vscode.workspace.workspaceFolders?.[0];
