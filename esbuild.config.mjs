@@ -8,28 +8,42 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 const outFile = join(__dirname, 'dist', 'extension.js');
+const cliOutFile = join(__dirname, 'dist', 'whiskers-dump-history.js');
+
+const baseNodeOpts = {
+  bundle: true,
+  platform: 'node',
+  target: 'node18',
+  format: 'cjs',
+  external: ['vscode', 'sql.js'],
+  sourcemap: !production,
+  minify: production,
+  logLevel: 'info',
+};
 
 async function build() {
   mkdirSync(join(__dirname, 'dist'), { recursive: true });
 
-  const ctx = await esbuild.context({
+  const extCtx = await esbuild.context({
+    ...baseNodeOpts,
     entryPoints: [join(__dirname, 'src', 'extension.ts')],
-    bundle: true,
     outfile: outFile,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    external: ['vscode', 'sql.js'],
-    sourcemap: !production,
-    minify: production,
-    logLevel: 'info',
+  });
+
+  const cliCtx = await esbuild.context({
+    ...baseNodeOpts,
+    entryPoints: [join(__dirname, 'src', 'cli', 'dumpHistory.ts')],
+    outfile: cliOutFile,
+    banner: { js: '#!/usr/bin/env node\n' },
   });
 
   if (watch) {
-    await ctx.watch();
+    await Promise.all([extCtx.watch(), cliCtx.watch()]);
   } else {
-    await ctx.rebuild();
-    await ctx.dispose();
+    await extCtx.rebuild();
+    await cliCtx.rebuild();
+    await extCtx.dispose();
+    await cliCtx.dispose();
   }
 }
 

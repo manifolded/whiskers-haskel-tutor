@@ -56,9 +56,42 @@ If `cabal install ihaskell` reports "ghc could not be found", run `ghcup set ghc
 
 **Kernel fails with `ghc-pkg` not in PATH:** Jupyter often starts without your shell `PATH`, so `~/.ghcup/bin` may be missing. See [docs/ihaskell-kernel-path.md](docs/ihaskell-kernel-path.md).
 
+**Kernel fails with hidden package `ihaskell` / wrong `ghc-lib-parser` version:** Your active **GHC** likely does not match the GHC used to build IHaskell, or **`GHC_PACKAGE_PATH`** is set. See [docs/ihaskell-kernel-path.md#kernel-fails-hidden-package-ihaskell](docs/ihaskell-kernel-path.md#kernel-fails-hidden-package-ihaskell).
+
 ## Workspace
 
 Open a **folder** as the workspace. The first root folder is the Whiskers project root. Chat history is stored under `<workspace>/.whiskers/history.sqlite` (SQLite via **sql.js**).
+
+### Dump chat history (CLI)
+
+After building (`npm run compile`), you can export that SQLite file from the shell. The CLI writes **into the current working directory** (not necessarily the workspace path) using fixed filenames, or prints to stdout with `--read` / `-r`.
+
+| Invocation | Output |
+|------------|--------|
+| `npm run dump-history -- <workspace>` | `whiskers-history-dump.json` (pretty-printed JSON array of message rows) |
+| `npm run dump-history -- -m <workspace>` | `whiskers-history-dump.md` (Markdown transcript: headings, role, mode, content) |
+| `npm run dump-history -- -t <workspace>` | `whiskers-history-timestamps.txt` (one **ISO 8601** timestamp per line, `created_at` ascending) |
+| `npm run dump-history -- -t -m <workspace>` | `whiskers-history-timestamps.md` (Markdown bullet list with **human-readable** date/time via the system locale, e.g. `toLocaleString()`) |
+| `npm run dump-history -- -r <workspace>` | Same formats as above, but **stdout** instead of a file |
+
+**Flags (combinable where noted):**
+
+- **`-u` / `--user-only`** — only rows with `role = user`.
+- **`-t` / `--timestamps-only`** — only timestamps (format: plain ISO lines, or Markdown + locale times with `-m`).
+- **`-m` / `--markdown`** — Markdown for the full transcript; with `-t`, switches timestamp-only output to the `.md` list with human-readable times.
+- **`-r` / `--read`** — write to stdout.
+- **`--limit <n>`** — cap rows (default: 100000).
+
+Examples:
+
+```bash
+npm run compile
+npm run dump-history -- /path/to/your/project
+npm run dump-history -- -m -r /path/to/your/project
+npm run dump-history -- -u -t /path/to/your/project
+```
+
+You can also run the built script directly: `node dist/whiskers-dump-history.js <workspace> [options]`. There is no `package.json` `bin` entry; use `npm run dump-history` or `node` as above.
 
 ## Configuration (no silent defaults)
 

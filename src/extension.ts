@@ -1,8 +1,10 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { ChatPanel } from './panel';
 import { notebookEditorForContext } from './notebook/context';
 import { serializeCellOutputs } from './notebook/output';
 import { setPendingAttachment } from './attachment';
+import { runIhaskellKernelDiagnostics } from './kernelDiagnostics';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   context.subscriptions.push(
@@ -36,6 +38,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       panel.postAttachedOutput(block);
       panel.reveal();
       panel.postToast('Cell output attached to the next chat message.');
+    }),
+    vscode.commands.registerCommand('whiskers.diagnoseIhaskellKernel', () => {
+      const wf = vscode.workspace.workspaceFolders?.[0];
+      const ndjsonPath = wf ? path.join(wf.uri.fsPath, '.cursor', 'debug-06212d.log') : undefined;
+      runIhaskellKernelDiagnostics(ndjsonPath);
+      void vscode.window.showInformationMessage(
+        ndjsonPath
+          ? `Whiskers IHaskell diagnostics appended to ${ndjsonPath}.`
+          : 'Open a workspace folder to write IHaskell diagnostics to .cursor/debug-06212d.log in that folder.'
+      );
     }),
     vscode.commands.registerCommand('whiskers.setReplicateApiToken', async () => {
       const token = await vscode.window.showInputBox({

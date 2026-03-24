@@ -32,6 +32,10 @@
       {
         "command": "whiskers.setReplicateApiToken",
         "title": "Whiskers: Set Replicate API Token"
+      },
+      {
+        "command": "whiskers.diagnoseIhaskellKernel",
+        "title": "Whiskers: Diagnose IHaskell Kernel Environment"
       }
     ],
     "configuration": {
@@ -61,6 +65,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "npm run compile:ext && npm run compile:webview",
     "compile:ext": "node esbuild.config.mjs --production",
+    "dump-history": "node dist/whiskers-dump-history.js",
     "compile:webview": "vite build --config webview/vite.config.ts",
     "watch": "node esbuild.config.mjs --watch",
     "watch:webview": "vite build --config webview/vite.config.ts --watch",

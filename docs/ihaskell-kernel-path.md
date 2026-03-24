@@ -8,6 +8,43 @@ shelly did not find ghc-pkg in the PATH: ...
 
 the Jupyter process that launches IHaskell does **not** include `~/.ghcup/bin` on `PATH`. Interactive terminals often add GHCup via `~/.bashrc` / `~/.zshrc`, but **Cursor / VS Code** (and the Jupyter extension) may start without those files, and **Conda** may put `anaconda3/bin` first.
 
+## Kernel fails: hidden package ihaskell
+
+If starting the kernel fails with errors like:
+
+```text
+Could not load module `IHaskell.Display'
+It is a member of the hidden package `ihaskell-0.13.0.0'.
+You can run `:set -package ihaskell' to expose it.
+```
+
+and similar lines for `template-haskell`, `unix`, `directory`, or **`ghc-lib-parser-9.8.*`**, the IHaskell **build** and the **GHC you run** are out of sync. A line mentioning **`ghc-lib-parser-9.8.*`** means the **IHaskell** binary (or its Cabal dependencies) pulled **ghc-lib** for **GHC 9.8**, while **`ghc` on your PATH** may still be **9.6** (or the reverse). GHCi then cannot expose `IHaskell.*` and base packages consistently.
+
+**Even if `kernel.json` already has `--ghclib` …/ghc-9.6.7/…/lib`:** `ihaskell install` can still leave you with an **`ihaskell` executable** that was **compiled** when Cabal pulled **`ghc-lib` 9.8** into the store. The kernel passes the right `--ghclib`, but the running binary still tries to load **9.8** `ghc-lib-parser` modules. Fix is still a **full rebuild** of IHaskell with **only** the intended GHC active (`ghcup set ghc` + `cabal install ihaskell --overwrite-policy=always` + `ihaskell install`), then point **`argv[0]`** at your wrapper again.
+
+**1. Pick a single GHC and stick to it** (either everything **9.6.x** or everything **9.8.x**—do not mix).
+
+**2. Reinstall IHaskell for that compiler** (this rebuilds against one `ghc-lib` / boot package set):
+
+```bash
+ghcup set ghc 9.6.7          # example: match INSTALLATION.md
+cabal update
+cabal install ihaskell --overwrite-policy=always
+ihaskell install
+```
+
+If you prefer **GHC 9.8** instead, install it with `ghcup install ghc` / `ghcup set ghc <9.8.x>`, then run the same `cabal install ihaskell` and `ihaskell install` lines. After `ihaskell install`, if you use the [kernel wrapper](#fix-1--wrapper-script-recommended), point **`kernel.json` `argv[0]`** back to the wrapper script again.
+
+**3. Clear `GHC_PACKAGE_PATH` for the kernel.** The wrapper script below runs `unset GHC_PACKAGE_PATH` before starting `ihaskell`. A global `cabal install --lib …` can set this and confuse GHCi; removing `~/.ghc/.../environments/default` (or not using a global env) also helps.
+
+**4. Optional:** Run **Whiskers: Diagnose IHaskell Kernel Environment** (after `npm run compile` and reloading the Extension Development Host) with the **same workspace folder open** where the kernel fails. It appends NDJSON lines to `<workspace>/.cursor/debug-06212d.log` with `ghc --version`, `ghc --print-libdir`, full `kernel.json` `argv`, and a **kernel-like** `PATH` (no conda) for comparison.
+
+## Kernel works in one workspace folder but not another
+
+`kernel.json` is **per user** (e.g. `~/Library/Jupyter/kernels/haskell/kernel.json` on macOS), so the **IHaskell command line** is usually the same everywhere. Even so, the **Jupyter server** and **kernel subprocess** inherit the **environment of the VS Code / Cursor process** for the **currently opened folder**—including `PATH`, Conda activation, and Python/Jupyter selection. So IHaskell can **start in one project** and **fail in another** without any change to Whiskers or to `kernel.json`.
+
+**What to do:** Open the **failing** folder as the workspace, run **Whiskers: Diagnose IHaskell Kernel Environment**, and compare `PATH` / `GHC_PACKAGE_PATH` to a terminal where `jupyter` works. Use the [wrapper](#fix-1--wrapper-script-recommended) and a **single** GHC + reinstall IHaskell as in the section above if you still see hidden-package / `ghc-lib-parser` errors.
+
 ## Fix 1 — Wrapper script (recommended)
 
 This avoids **freezing** a full `PATH` string in `kernel.json` (which goes stale as your shell environment changes). A tiny script **prepends** GHCup for each kernel start, then **`exec`s** the real `ihaskell` with the same arguments Jupyter would have passed.
