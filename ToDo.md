@@ -11,4 +11,5 @@
 - [X] IHaskell is now corrupted. Asking debug to fix it.
 - [X] Inconsistent Toolchain problem. Maybe we just upgrade to 9.8?
 - [X] Shorten responses from Claude.
+- [ ] Since upgrading to ghc 9.8.4 cabal no longer lets me install haskell packages at user workspace scope - unable to resolve dependencies
 - [ ] 

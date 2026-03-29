@@ -3,6 +3,7 @@
   "displayName": "Whiskers Haskell Tutor",
   "description": "Haskell tutor with Jupyter/IHaskell integration and AI chat",
   "version": "0.1.0",
+  "license": "MIT",
   "publisher": "whiskers",
   "repository": {
     "type": "git",
