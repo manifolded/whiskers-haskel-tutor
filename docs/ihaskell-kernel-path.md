@@ -18,22 +18,24 @@ It is a member of the hidden package `ihaskell-0.13.0.0'.
 You can run `:set -package ihaskell' to expose it.
 ```
 
-and similar lines for `template-haskell`, `unix`, `directory`, or **`ghc-lib-parser-9.8.*`**, the IHaskell **build** and the **GHC you run** are out of sync. A line mentioning **`ghc-lib-parser-9.8.*`** means the **IHaskell** binary (or its Cabal dependencies) pulled **ghc-lib** for **GHC 9.8**, while **`ghc` on your PATH** may still be **9.6** (or the reverse). GHCi then cannot expose `IHaskell.*` and base packages consistently.
+and similar lines for `template-haskell`, `unix`, `directory`, or **`ghc-lib-parser-9.8.*`** (or another `ghc-lib-parser-*` line that does not match your compiler line), the IHaskell **build** and the **GHC you run** are out of sync. For example, the **IHaskell** binary (or its Cabal dependencies) may have been built against **`ghc-lib` 9.8** while **`ghc` on your PATH** is still **9.6** (or the reverse). GHCi then cannot expose `IHaskell.*` and base packages consistently.
 
-**Even if `kernel.json` already has `--ghclib` …/ghc-9.6.7/…/lib`:** `ihaskell install` can still leave you with an **`ihaskell` executable** that was **compiled** when Cabal pulled **`ghc-lib` 9.8** into the store. The kernel passes the right `--ghclib`, but the running binary still tries to load **9.8** `ghc-lib-parser` modules. Fix is still a **full rebuild** of IHaskell with **only** the intended GHC active (`ghcup set ghc` + `cabal install ihaskell --overwrite-policy=always` + `ihaskell install`), then point **`argv[0]`** at your wrapper again.
+**Even if `kernel.json` already has `--ghclib` …/ghc-9.8.4/…/lib`:** `ihaskell install` can still leave you with an **`ihaskell` executable** that was **compiled** against a **different** `ghc-lib` / store snapshot. The kernel passes one `--ghclib`, but the running binary may still try to load mismatched `ghc-lib-parser` modules. Fix is still a **full rebuild** of IHaskell with **only** the intended GHC active (`ghcup set ghc` + `cabal install ihaskell --overwrite-policy=always` + **`~/.local/bin/ihaskell install`** if PATH might pick an old `ihaskell`), then point **`argv[0]`** at your wrapper again.
 
-**1. Pick a single GHC and stick to it** (either everything **9.6.x** or everything **9.8.x**—do not mix).
+**1. Pick a single GHC and stick to it** — [INSTALLATION.md](../INSTALLATION.md) assumes **9.8.4** for GHC, Cabal, IHaskell, and HLS. Do not mix **9.6.x** and **9.8.x** on PATH, in `kernel.json`, or in `.ghc.environment.*`.
 
 **2. Reinstall IHaskell for that compiler** (this rebuilds against one `ghc-lib` / boot package set):
 
 ```bash
-ghcup set ghc 9.6.7          # example: match INSTALLATION.md
+ghcup set ghc 9.8.4          # match INSTALLATION.md
 cabal update
 cabal install ihaskell --overwrite-policy=always
-ihaskell install
+~/.local/bin/ihaskell install    # avoids a stale ihaskell earlier on PATH
 ```
 
-If you prefer **GHC 9.8** instead, install it with `ghcup install ghc` / `ghcup set ghc <9.8.x>`, then run the same `cabal install ihaskell` and `ihaskell install` lines. After `ihaskell install`, if you use the [kernel wrapper](#fix-1--wrapper-script-recommended), point **`kernel.json` `argv[0]`** back to the wrapper script again.
+After `ihaskell install`, if you use the [kernel wrapper](#fix-1--wrapper-script-recommended), point **`kernel.json` `argv[0]`** back to the wrapper script again.
+
+If you must stay on **9.6.x**, use the same four steps with **`ghcup set ghc 9.6.7`** (or your pin) instead—**all** of GHC, IHaskell rebuild, `kernel.json` `--ghclib`, and project `.ghc.environment.*` must match that version.
 
 **3. Clear `GHC_PACKAGE_PATH` for the kernel.** The wrapper script below runs `unset GHC_PACKAGE_PATH` before starting `ihaskell`. A global `cabal install --lib …` can set this and confuse GHCi; removing `~/.ghc/.../environments/default` (or not using a global env) also helps.
 

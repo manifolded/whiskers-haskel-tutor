@@ -22,7 +22,7 @@ This project does not assume a published Marketplace listing. Use one of these a
    - **Command Palette** (macOS: **⇧⌘P**): run **Extensions: Install from VSIX…**, then choose the generated `whiskers-haskell-tutor-*.vsix` in the project directory (or wherever you saved it).
    - Alternatively, open **Extensions** (**⇧⌘X** in VS Code on macOS; your keybindings may differ) and use the **⋯** menu on that view if your build shows **Install from VSIX…** there.
 
-After installation, configure [settings](#configuration-no-silent-defaults) and complete the [prerequisites](#prerequisites-developer-environment) for notebooks and AI backends.
+After installation, configure [settings](#configuration-no-silent-defaults) and complete the [prerequisites](#prerequisites-developer-environment) for notebooks and AI backends (including [Haskell toolchain (GHC 9.8.4)](#haskell-toolchain-ghc-984) if you use IHaskell).
 
 ### From source (Extension Development Host)
 
@@ -30,27 +30,96 @@ For development and debugging, use **F5** in VS Code/Cursor with this folder ope
 
 ## Prerequisites (developer environment)
 
-- **GHCup** with **GHC** and **IHaskell** available as the Jupyter kernel.
+- **GHCup** with **GHC** (docs assume **9.8.4**), **Cabal**, **IHaskell** as the Jupyter kernel, and optionally **HLS** for Haskell in the editor—see **[Haskell toolchain (GHC 9.8.4)](#haskell-toolchain-ghc-984)** below for the full sequence.
 - **Jupyter** extension: `ms-toolsai.jupyter` (install from the Marketplace).
 - **LM Studio** (or another OpenAI-compatible server) for **coach / challenge / quiz**.
 - **Replicate** API token for **generation / debugging** (Claude Opus 4.6 via `anthropic/claude-opus-4.6` by default).
 
-### IHaskell setup (after installing GHCup via Homebrew)
+<a id="haskell-toolchain-ghc-984"></a>
 
-Ensure `~/.ghcup/bin` is in your PATH (Homebrew GHCup does not create `~/.ghcup/env`; add `export PATH="$HOME/.ghcup/bin:$PATH"` to `~/.bashrc` or `~/.zshrc` if needed).
+## Haskell toolchain (GHC 9.8.4)
+
+End-to-end steps for **GHCup**, **Cabal**, **HLS**, **IHaskell**, and Jupyter. The Whiskers extension itself is TypeScript; you need this toolchain for **IHaskell notebooks** and (optionally) **`.hs`** files in Cursor/VS Code.
+
+### Assumptions
+
+- **GHCup** is installed (e.g. via Homebrew).
+- **`~/.ghcup/bin`** is on your `PATH` in shells where you run the commands below (add `export PATH="$HOME/.ghcup/bin:$PATH"` to `~/.bashrc` or `~/.zshrc` if needed; Homebrew’s GHCup does not always create `~/.ghcup/env`).
+- For Jupyter, **`~/.ghcup/bin`** often **does not** appear in the GUI environment—use a [kernel wrapper](docs/ihaskell-kernel-path.md) so `ghc-pkg` resolves when the kernel starts.
+
+### 1. Install and select GHC 9.8.4
 
 ```bash
-ghcup install ghc
-ghcup install cabal
-ghcup set ghc 9.6.7    # or your installed version — required so `ghc` is on PATH
-cabal update
-cabal install ihaskell    # this takes a while
-ihaskell install
+ghcup install ghc 9.8.4
+ghcup set ghc 9.8.4
 ```
 
-Cabal installs `ihaskell` to `~/.local/bin`. If you prefer not to add that to PATH, symlink it into `~/.ghcup/bin`: `ln -s ~/.local/state/cabal/store/ghc-9.6.7/hskll-0.13.0.0-70faaa06/bin/ihaskell ~/.ghcup/bin/ihaskell`.
+Verify:
 
-If `cabal install ihaskell` reports "ghc could not be found", run `ghcup set ghc <version>` (e.g. `ghcup set ghc 9.6.7`) to set the active GHC and create the symlink in `~/.ghcup/bin`.
+```bash
+ghc --numeric-version   # should print 9.8.4
+```
+
+### 2. Upgrade Cabal (via ghcup)
+
+Use **`ghcup install`**, not `ghcup upgrade cabal` (that form is invalid on current ghcup):
+
+```bash
+ghcup install cabal latest
+ghcup set cabal recommended   # or the exact version you installed
+cabal update
+```
+
+### 3. Install HLS for this GHC
+
+```bash
+ghcup install hls
+ghcup set hls <version>   # pick a version `ghcup list` shows; choose one that supports GHC 9.8.4
+```
+
+**Cursor / VS Code:** the editor should use **`haskell-language-server-wrapper`** from **`~/.ghcup/bin`**—the same **PATH** story as **`ghc`**. The **Haskell** extension may run **`ghcup run --hls …`** for you. If anything misbehaves, set **`haskell.serverExecutablePath`** to **`$HOME/.ghcup/bin/haskell-language-server-wrapper`**.
+
+**How to read the Haskell log:** Install the **Haskell** extension (`haskell.haskell`) from the Marketplace; the log does not exist without it. **Command Palette** (`⇧⌘P` on macOS): run **Output: Focus on Output View**. In the **Output** panel, open the **dropdown on the right** (not the terminal dropdown) and choose **Haskell**—often **`Haskell`** or **`Haskell (folder-name)`**. The channel stays **empty or absent** until the language server has started: create or open a trivial **`.hs`** file (e.g. `main = putStrLn "ok"`), **edit or save it once** so the Haskell extension activates, wait a few seconds, then reopen the dropdown or scroll the log. Use **Find** (`⌘F`) in that panel to search for **`Project GHC version`** or **`haskell-language-server-9.8.4`**.
+
+**Log quirk:** that log may also show a line like **`ghc-9.10.3`** next to **`haskell-language-server-wrapper`**. That is usually the **GHC used to compile that wrapper binary**, not your **project** GHC. In the same log, confirm **`Project GHC version: 9.8.4`** (or your pin) and that the server launches **`haskell-language-server-9.8.4`** (or matching version).
+
+### 4. Rebuild IHaskell (critical)
+
+One GHC everywhere—**9.8.4** on PATH before **`cabal install`**:
+
+```bash
+unset GHC_PACKAGE_PATH
+ghcup set ghc 9.8.4
+cabal install ihaskell --overwrite-policy=always
+~/.local/bin/ihaskell install
+```
+
+**`ihaskell install`** registers or updates the Jupyter spec (macOS: **`~/Library/Jupyter/kernels/haskell/kernel.json`**) with the correct **`argv`** and **`--ghclib`** paths.
+
+**Stale `kernel.json`:** if it still points at **`.../ghc-9.6.*/...`**, the wrong **`ihaskell`** ran. Cabal should keep **`~/.local/bin/ihaskell`** pointing at the new build—check **`ls -l ~/.local/bin/ihaskell`** targets **`.../cabal/store/ghc-9.8.4/...`**. Prefer **`~/.local/bin/ihaskell install`** by absolute path. Add **`~/.local/bin`** to PATH, or symlink **`~/.local/bin/ihaskell`** into **`~/.ghcup/bin`** (symlink the **stable** `~/.local/bin` name, not a hardcoded store hash path).
+
+If **`cabal install ihaskell`** says **`ghc` could not be found**, run **`ghcup set ghc 9.8.4`** again.
+
+### 5. Kernel wrapper (if you use it)
+
+**`ihaskell install`** overwrites **`kernel.json`**. If you use the [wrapper script](docs/ihaskell-kernel-path.md), set **`argv[0]`** back to that script’s absolute path after **`ihaskell install`**; leave the rest of **`argv`** unchanged.
+
+### 6. Notebook project / Cabal package environment
+
+In each folder where you use **`ghci`** or notebooks with **`cabal install --lib`**:
+
+- Remove or ignore old **`.ghc.environment.*`** files for the wrong GHC (e.g. **`*9.6.7*`**).
+- Recreate for **9.8.4**, e.g.  
+  **`cabal install --lib criterion --package-env .`**  
+  (add whatever packages you need). That produces **`.ghc.environment.<arch>-<os>-9.8.4`**.
+
+### 7. Smoke tests
+
+- **Terminal:** from the notebook project directory, **`ghci`** should pick up the new environment file when present.
+- **Notebook:** start the **Haskell** kernel; run **`import IHaskell.Display`** or a trivial cell.
+- If the kernel misbehaves, run **Whiskers: Diagnose IHaskell Kernel Environment** (after **`npm run compile`** and loading the extension).
+
+### IHaskell / Jupyter troubleshooting
 
 **Apple Silicon (arm64):** If the linker reports `found architecture 'x86_64', required architecture 'arm64'` for ZeroMQ, install the native arm64 ZeroMQ: `brew install zeromq` (use arm64 Homebrew at `/opt/homebrew`, not Intel Homebrew at `/usr/local`).
 
