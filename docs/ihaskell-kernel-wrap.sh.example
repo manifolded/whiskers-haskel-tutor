@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Jupyter initialization doesn't consistently use the PATH environment variable.
+# This script ensures that Jupyter's PATH includes the GHCup bin directory.
+#
 # Install: copy to ~/.local/bin/ihaskell-kernel-wrap.sh, chmod +x,
 # then set kernel.json argv[0] to this script's absolute path.
 #
