@@ -1,0 +1,14 @@
+- [ ] Explore using F5 Extension Development Host instead of constantly reinstalling the vsix.
+- [X] Clean up README. Move installation/technical details to new INSTALLATION.md
+- [ ] Render user bubbles in orange so they're visible amongst assistant responses.
+- [X] Add an image to the README
+- [ ] Context window summarization for long sessions
+    - Do we even need to? We want the app to follow the user's progress and be aware of their current level. Maybe not keeping a deep history isn't a problem.
+- [ ] Add a button for "attach active cell output to chat"
+- [X] Color the left vertical line by the mode.
+- [ ] Get GHCi working. At the moment :time and :browse commands don't work.
+- [X] Uninstall Criterion globally and reinstall at project scope.
+- [X] IHaskell is now corrupted. Asking debug to fix it.
+- [X] Inconsistent Toolchain problem. Maybe we just upgrade to 9.8?
+- [X] Shorten responses from Claude.
+- [ ] 
